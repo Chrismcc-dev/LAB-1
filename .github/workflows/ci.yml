@@ -1,0 +1,46 @@
+name: CI - Docker Lab
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-and-smoke-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build images
+        working-directory: docker
+        run: |
+          docker compose build
+
+      - name: Start lab (detached)
+        working-directory: docker
+        run: |
+          docker compose up -d
+          docker ps
+
+      - name: Smoke test (basic connectivity)
+        working-directory: docker
+        run: |
+          # Adjust these once we know your service names/ports
+          docker compose ps
+          # Example placeholder checks:
+          # docker exec -t <container_name> ping -c 2 <target>
+          echo "Smoke test placeholder - update once compose services are final."
+
+      - name: Tear down
+        if: always()
+        working-directory: docker
+        run: |
+          docker compose down -v
+
