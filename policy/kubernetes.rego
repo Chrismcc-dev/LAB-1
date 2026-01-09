@@ -11,8 +11,7 @@ deny[msg] {
   is_workload(input)
   container(c)
   uses_latest(c.image)
-
-  msg := sprintf("%s/%s: container '%s' uses ':latest' (or untagged) image (%s)", [
+  msg = sprintf("%s/%s: container '%s' uses ':latest' (or untagged) image (%s)", [
     input.kind, obj_name(input), container_name(c), c.image
   ])
 }
@@ -21,8 +20,7 @@ deny[msg] {
   is_workload(input)
   container(c)
   missing_limits(c)
-
-  msg := sprintf("%s/%s: container '%s' missing resources.limits.cpu and/or resources.limits.memory", [
+  msg = sprintf("%s/%s: container '%s' missing resources.limits.cpu and/or resources.limits.memory", [
     input.kind, obj_name(input), container_name(c)
   ])
 }
@@ -31,8 +29,7 @@ deny[msg] {
   is_workload(input)
   container(c)
   is_privileged(c)
-
-  msg := sprintf("%s/%s: container '%s' is privileged (securityContext.privileged=true)", [
+  msg = sprintf("%s/%s: container '%s' is privileged (securityContext.privileged=true)", [
     input.kind, obj_name(input), container_name(c)
   ])
 }
@@ -50,32 +47,32 @@ is_workload(obj) { obj.kind == "ReplicationController" }
 is_workload(obj) { obj.kind == "CronJob" }
 
 #########################
-# Pod spec + container set
+# Pod spec + containers
 #########################
 
-# Standard workloads
 podspec(ps) {
   input.kind != "CronJob"
   ps = input.spec.template.spec
 }
 
-# CronJob
 podspec(ps) {
   input.kind == "CronJob"
   ps = input.spec.jobTemplate.spec.template.spec
 }
 
-# Regular containers
+# Regular containers (explicit index, no _)
 container(c) {
   podspec(ps)
-  c = ps.containers[_]
+  some i
+  c = ps.containers[i]
 }
 
-# Init containers (only when present)
+# Init containers (explicit index, no _)
 container(c) {
   podspec(ps)
   ps.initContainers
-  c = ps.initContainers[_]
+  some j
+  c = ps.initContainers[j]
 }
 
 ################
@@ -102,9 +99,6 @@ container_name(c) = "unnamed" {
 # Rule helpers
 ################
 
-# latest detection:
-# - ends with :latest
-# - OR no tag (and no digest)
 uses_latest(image) {
   endswith(image, ":latest")
 }
@@ -114,21 +108,10 @@ uses_latest(image) {
   not contains(image, "@sha256:")
 }
 
-missing_limits(c) {
-  not c.resources
-}
-
-missing_limits(c) {
-  not c.resources.limits
-}
-
-missing_limits(c) {
-  not c.resources.limits.cpu
-}
-
-missing_limits(c) {
-  not c.resources.limits.memory
-}
+missing_limits(c) { not c.resources }
+missing_limits(c) { not c.resources.limits }
+missing_limits(c) { not c.resources.limits.cpu }
+missing_limits(c) { not c.resources.limits.memory }
 
 is_privileged(c) {
   c.securityContext.privileged == true
