@@ -34,6 +34,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Compute lowercase image name
+        id: vars
+        run: |
+          OWNER_LC="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          echo "owner_lc=$OWNER_LC" >> "$GITHUB_OUTPUT"
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -46,4 +52,4 @@ jobs:
         with:
           context: ./apps/node-hello
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/lab-1/node-hello:main
+          tags: ghcr.io/${{ steps.vars.outputs.owner_lc }}/lab-1/node-hello:main
