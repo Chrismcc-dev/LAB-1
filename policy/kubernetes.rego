@@ -2,43 +2,34 @@ package kubernetes
 
 #
 # Enforced rules:
-# 1) No :latest tag (or no tag)
+# 1) No :latest tag (or untagged images)
 # 2) CPU + Memory limits required
 # 3) No privileged containers
 #
 
 deny[msg] {
   is_workload(input)
-  containers := all_containers(input)
-  some i
-  c := containers[i]
-
+  container(c)
   uses_latest(c.image)
 
-  msg := sprintf("%s/%s: container '%s' uses a ':latest' (or untagged) image (%s)", [
+  msg := sprintf("%s/%s: container '%s' uses ':latest' (or untagged) image (%s)", [
     input.kind, obj_name(input), container_name(c), c.image
   ])
 }
 
 deny[msg] {
   is_workload(input)
-  containers := all_containers(input)
-  some i
-  c := containers[i]
-
+  container(c)
   missing_limits(c)
 
-  msg := sprintf("%s/%s: container '%s' is missing resources.limits.cpu and/or resources.limits.memory", [
+  msg := sprintf("%s/%s: container '%s' missing resources.limits.cpu and/or resources.limits.memory", [
     input.kind, obj_name(input), container_name(c)
   ])
 }
 
 deny[msg] {
   is_workload(input)
-  containers := all_containers(input)
-  some i
-  c := containers[i]
-
+  container(c)
   is_privileged(c)
 
   msg := sprintf("%s/%s: container '%s' is privileged (securityContext.privileged=true)", [
@@ -46,69 +37,96 @@ deny[msg] {
   ])
 }
 
-##########
-# Helpers
-##########
+################
+# Workload kinds
+################
 
-# Workloads with Pod specs (including CronJob)
-is_workload(obj) {
-  obj.kind == "Deployment"
-} or {
-  obj.kind == "StatefulSet"
-} or {
-  obj.kind == "DaemonSet"
-} or {
-  obj.kind == "Job"
-} or {
-  obj.kind == "ReplicaSet"
-} or {
-  obj.kind == "ReplicationController"
-} or {
-  obj.kind == "CronJob"
+is_workload(obj) { obj.kind == "Deployment" }
+is_workload(obj) { obj.kind == "StatefulSet" }
+is_workload(obj) { obj.kind == "DaemonSet" }
+is_workload(obj) { obj.kind == "Job" }
+is_workload(obj) { obj.kind == "ReplicaSet" }
+is_workload(obj) { obj.kind == "ReplicationController" }
+is_workload(obj) { obj.kind == "CronJob" }
+
+#########################
+# Pod spec + container set
+#########################
+
+# Standard workloads
+podspec(ps) {
+  input.kind != "CronJob"
+  ps := input.spec.template.spec
 }
 
-# Return the pod spec for supported workload types
-podspec(obj) = ps {
-  obj.kind == "CronJob"
-  ps := obj.spec.jobTemplate.spec.template.spec
-} else = ps {
-  obj.kind != "CronJob"
-  ps := obj.spec.template.spec
+# CronJob
+podspec(ps) {
+  input.kind == "CronJob"
+  ps := input.spec.jobTemplate.spec.template.spec
 }
 
-# containers + initContainers (if present)
-all_containers(obj) = out {
-  ps := podspec(obj)
-  cs := object.get(ps, "containers", [])
-  ics := object.get(ps, "initContainers", [])
-  out := array.concat(cs, ics)
+# Regular containers
+container(c) {
+  podspec(ps)
+  c := ps.containers[_]
 }
+
+# Init containers (only when present)
+container(c) {
+  podspec(ps)
+  ps.initContainers
+  c := ps.initContainers[_]
+}
+
+################
+# Field helpers
+################
 
 obj_name(obj) = n {
-  n := object.get(obj.metadata, "name", "unknown")
+  obj.metadata.name == n
+}
+
+obj_name(obj) = "unknown" {
+  not obj.metadata.name
 }
 
 container_name(c) = n {
-  n := object.get(c, "name", "unnamed")
+  c.name == n
 }
+
+container_name(c) = "unnamed" {
+  not c.name
+}
+
+################
+# Rule helpers
+################
 
 # latest detection:
 # - ends with :latest
-# - OR has no tag (and no digest)
+# - OR no tag (and no digest)
 uses_latest(image) {
   endswith(image, ":latest")
-} or {
+}
+
+uses_latest(image) {
   not contains(image, ":")
   not contains(image, "@sha256:")
 }
 
 missing_limits(c) {
   not c.resources
-} or {
+}
+
+missing_limits(c) {
   not c.resources.limits
-} or {
+}
+
+missing_limits(c) {
   not c.resources.limits.cpu
-} or {
+}
+
+missing_limits(c) {
   not c.resources.limits.memory
 }
 
