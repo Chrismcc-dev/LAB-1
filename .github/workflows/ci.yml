@@ -6,8 +6,17 @@ on:
 
 jobs:
   k8s-validate:
-    name: Validate Kubernetes manifests (offline)
+    name: Validate Kubernetes manifests (offline) [K8s ${{ matrix.k8s_version }}]
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s_version:
+          - "1.27.0"
+          - "1.28.0"
+          - "1.29.0"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,14 +33,14 @@ jobs:
           sudo mv kubeconform /usr/local/bin/kubeconform
           kubeconform -v
 
-      - name: Run kubeconform (strict)
+      - name: Run kubeconform (strict) [K8s ${{ matrix.k8s_version }}]
         run: |
           set -euo pipefail
           kubeconform \
             -strict \
             -ignore-missing-schemas \
             -summary \
-            -kubernetes-version 1.29.0 \
+            -kubernetes-version "${{ matrix.k8s_version }}" \
             k8s/namespace.yaml \
             k8s/apps/nginx/deployment.yaml \
             k8s/apps/nginx/service.yaml \
@@ -52,6 +61,7 @@ jobs:
       # GHCR requires lowercase in the image path. This forces it.
       - name: Set lowercase owner
         run: |
+          set -euo pipefail
           echo "OWNER_LC=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
 
       - name: Log in to GHCR
