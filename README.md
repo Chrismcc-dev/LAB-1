@@ -5,4 +5,5 @@ This repository demonstrates how a modern software / cloud engineerGood designs,
 
 ## Labs
 - [01 — MicroK8s Cluster Basics](labs/01-microk8s/README.md)
+Code → CI Pipeline → Validation → Policy Checks → Security Scan → Ready for Deploy
 
