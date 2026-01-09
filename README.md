@@ -1,21 +1,11 @@
-# LAB-1 — Virtual Network Lab (CI-Driven)
+# LAB-1 — Cloud & DevOps Lab Series
 
-This project demonstrates a production-style workflow for building and validating
-infrastructure labs using GitHub Actions.
+A hands-on lab series to showcase practical cloud engineering skills:
+- Kubernetes (MicroK8s)
+- CI/CD (GitHub Actions)
+- Networking + security fundamentals
+- Observability and deployment automation
 
-## What this shows
-- Infrastructure-as-code mindset
-- CI pipelines validating environments automatically
-- Comfort with Linux, networking, and cloud-style workflows
-- Ability to work without relying on local machine state
-
-## Tech Used
-- GitHub Actions (CI)
-- Linux networking concepts
-- Container / virtualization tooling
-- Bash scripting
-
-## Why this matters
-This lab runs automatically in CI, proving the setup works independently
-of the developer’s machine — similar to real-world cloud systems.
+## Labs
+- [01 — MicroK8s Cluster Basics](labs/01-microk8s/README.md)
 
