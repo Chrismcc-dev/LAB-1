@@ -56,26 +56,26 @@ is_workload(obj) { obj.kind == "CronJob" }
 # Standard workloads
 podspec(ps) {
   input.kind != "CronJob"
-  ps := input.spec.template.spec
+  ps = input.spec.template.spec
 }
 
 # CronJob
 podspec(ps) {
   input.kind == "CronJob"
-  ps := input.spec.jobTemplate.spec.template.spec
+  ps = input.spec.jobTemplate.spec.template.spec
 }
 
 # Regular containers
 container(c) {
   podspec(ps)
-  c := ps.containers[_]
+  c = ps.containers[_]
 }
 
 # Init containers (only when present)
 container(c) {
   podspec(ps)
   ps.initContainers
-  c := ps.initContainers[_]
+  c = ps.initContainers[_]
 }
 
 ################
