@@ -1,110 +1,103 @@
 package kubernetes
 
-# Conftest will feed each YAML document as `input`.
+#
+# Enforced rules:
+# 1) No :latest tag (or no tag)
+# 2) CPU + Memory limits required
+# 3) No privileged containers
+#
 
 deny[msg] {
-  is_workload_with_pod_spec(input)
-  c := all_containers(input)[_]
-  image_uses_latest(c.image)
-  msg := sprintf("%s/%s: container '%s' uses a ':latest' image tag (%s)", [input.kind, object_name(input), container_name(c), c.image])
+  is_workload(input)
+  containers := all_containers(input)
+  some i
+  c := containers[i]
+
+  uses_latest(c.image)
+
+  msg := sprintf("%s/%s: container '%s' uses a ':latest' (or untagged) image (%s)", [
+    input.kind, obj_name(input), container_name(c), c.image
+  ])
 }
 
 deny[msg] {
-  is_workload_with_pod_spec(input)
-  c := all_containers(input)[_]
+  is_workload(input)
+  containers := all_containers(input)
+  some i
+  c := containers[i]
+
   missing_limits(c)
-  msg := sprintf("%s/%s: container '%s' is missing resources.limits.cpu and/or resources.limits.memory", [input.kind, object_name(input), container_name(c)])
+
+  msg := sprintf("%s/%s: container '%s' is missing resources.limits.cpu and/or resources.limits.memory", [
+    input.kind, obj_name(input), container_name(c)
+  ])
 }
 
 deny[msg] {
-  is_workload_with_pod_spec(input)
-  c := all_containers(input)[_]
+  is_workload(input)
+  containers := all_containers(input)
+  some i
+  c := containers[i]
+
   is_privileged(c)
-  msg := sprintf("%s/%s: container '%s' is privileged (securityContext.privileged=true)", [input.kind, object_name(input), container_name(c)])
+
+  msg := sprintf("%s/%s: container '%s' is privileged (securityContext.privileged=true)", [
+    input.kind, obj_name(input), container_name(c)
+  ])
 }
 
-###
+##########
 # Helpers
-###
+##########
 
-# Workloads that contain a pod template spec:
-# Deployment, StatefulSet, DaemonSet, Job, ReplicaSet, ReplicationController, CronJob
-is_workload_with_pod_spec(obj) {
+# Workloads with Pod specs (including CronJob)
+is_workload(obj) {
   obj.kind == "Deployment"
-  obj.spec.template.spec
-}
-is_workload_with_pod_spec(obj) {
+} or {
   obj.kind == "StatefulSet"
-  obj.spec.template.spec
-}
-is_workload_with_pod_spec(obj) {
+} or {
   obj.kind == "DaemonSet"
-  obj.spec.template.spec
-}
-is_workload_with_pod_spec(obj) {
+} or {
   obj.kind == "Job"
-  obj.spec.template.spec
-}
-is_workload_with_pod_spec(obj) {
+} or {
   obj.kind == "ReplicaSet"
-  obj.spec.template.spec
-}
-is_workload_with_pod_spec(obj) {
+} or {
   obj.kind == "ReplicationController"
-  obj.spec.template.spec
-}
-is_workload_with_pod_spec(obj) {
+} or {
   obj.kind == "CronJob"
-  obj.spec.jobTemplate.spec.template.spec
 }
 
-# Grab all containers (+ initContainers if present)
-all_containers(obj) = containers {
+# Return the pod spec for supported workload types
+podspec(obj) = ps {
   obj.kind == "CronJob"
-  podspec := obj.spec.jobTemplate.spec.template.spec
-  containers := concat_arrays([
-    get_array(podspec, ["containers"]),
-    get_array(podspec, ["initContainers"])
-  ])
-}
-
-all_containers(obj) = containers {
+  ps := obj.spec.jobTemplate.spec.template.spec
+} else = ps {
   obj.kind != "CronJob"
-  podspec := obj.spec.template.spec
-  containers := concat_arrays([
-    get_array(podspec, ["containers"]),
-    get_array(podspec, ["initContainers"])
-  ])
+  ps := obj.spec.template.spec
 }
 
-get_array(obj, path) = arr {
-  arr := object.get(obj, path[0], [])
+# containers + initContainers (if present)
+all_containers(obj) = out {
+  ps := podspec(obj)
+  cs := object.get(ps, "containers", [])
+  ics := object.get(ps, "initContainers", [])
+  out := array.concat(cs, ics)
 }
 
-concat_arrays(arrs) = out {
-  out := [x | arr := arrs[_]; x := arr[_]]
-}
-
-object_name(obj) = name {
-  name := obj.metadata.name
-} else = "unknown" {
-  true
+obj_name(obj) = n {
+  n := object.get(obj.metadata, "name", "unknown")
 }
 
 container_name(c) = n {
-  n := c.name
-} else = "unnamed" {
-  true
+  n := object.get(c, "name", "unnamed")
 }
 
 # latest detection:
-# - image ends with :latest
-# - or has no tag (defaults to latest in many runtimes)
-image_uses_latest(image) {
+# - ends with :latest
+# - OR has no tag (and no digest)
+uses_latest(image) {
   endswith(image, ":latest")
-}
-
-image_uses_latest(image) {
+} or {
   not contains(image, ":")
   not contains(image, "@sha256:")
 }
