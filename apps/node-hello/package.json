@@ -1,9 +1,16 @@
 {
   "name": "node-hello",
   "version": "1.0.0",
+  "private": true,
   "main": "server.js",
-  "type": "commonjs",
   "scripts": {
     "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "overrides": {
+    "cross-spawn": "7.0.5",
+    "glob": "11.1.0"
   }
 }
