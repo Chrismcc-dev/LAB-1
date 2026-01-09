@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: node-hello
-  namespace: lab-1
 spec:
   replicas: 1
   selector:
@@ -12,12 +11,17 @@ spec:
     metadata:
       labels:
         app: node-hello
+    acknowledged
     spec:
       containers:
         - name: node-hello
           image: ghcr.io/chrismcc-dev/lab-1/node-hello:main
           ports:
             - containerPort: 3000
-          env:
-            - name: PORT
-              value: "3000"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
