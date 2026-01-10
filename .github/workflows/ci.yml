@@ -17,12 +17,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
       - name: Install dependencies
+        working-directory: apps/node-hello
         run: npm ci
 
       - name: Build
+        working-directory: apps/node-hello
         run: npm run build --if-present
 
       - name: Kubernetes manifest validation
@@ -49,8 +50,9 @@ jobs:
           vuln-type: os,library
 
       - name: Generate SBOM (CycloneDX)
+        working-directory: apps/node-hello
         run: |
-          npx @cyclonedx/cyclonedx-npm --output-file sbom.cdx.json
+          npx @cyclonedx/cyclonedx-npm --output-file ../../sbom.cdx.json
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
