@@ -1,23 +1,33 @@
-# ---- deps stage (needs npm) ----
+# syntax=docker/dockerfile:1
+
+# ---- deps/build stage ----
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-COPY package*.json ./
+# Copy app manifests first for caching
+COPY apps/node-hello/package.json apps/node-hello/package-lock.json ./
 RUN npm ci --omit=dev
 
-# ---- runtime stage (no npm/corepack) ----
+# Copy app source
+COPY apps/node-hello/ ./
+
+# Optional build step if it exists
+RUN npm run build --if-present
+
+
+# ---- runtime stage (minimal) ----
 FROM node:20-alpine AS runtime
 WORKDIR /app
+ENV NODE_ENV=production
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+# Copy built app + node_modules only
+COPY --from=deps /app /app
 
-# Remove npm + corepack so Trivy doesn't scan their bundled deps
+# 🔥 Remove npm to eliminate npm-bundled vulns (cross-spawn/glob live under npm)
 RUN rm -rf /usr/local/lib/node_modules/npm \
-           /usr/local/bin/npm \
-           /usr/local/bin/npx \
-           /usr/local/lib/node_modules/corepack \
-           /usr/local/bin/corepack || true
+  && rm -f /usr/local/bin/npm /usr/local/bin/npx
 
 EXPOSE 3000
+
+# Run the app directly (no npm)
 CMD ["node", "server.js"]
